@@ -1,7 +1,7 @@
-// 文本解析 API Route（用于手动添加时 AI 辅助分类）
+// 文本解析 API Route（使用百炼 API - 通义千问）
 
 import { NextRequest, NextResponse } from 'next/server';
-import { parseTextToRecord } from '@/lib/gemini';
+import { parseTextToRecord } from '@/lib/dashscope';
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 调用 Gemini API 解析文本
+    // 调用百炼 API 解析文本
     const result = await parseTextToRecord(text);
 
     return NextResponse.json({

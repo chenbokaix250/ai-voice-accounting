@@ -2,7 +2,7 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useVoice } from '@/hooks/use-voice';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -16,6 +16,7 @@ interface VoiceRecorderProps {
 
 export function VoiceRecorder({ onResult, disabled }: VoiceRecorderProps) {
   const [isProcessing, setIsProcessing] = useState(false);
+  const processingRef = useRef(false);  // 防止重复处理
 
   const {
     isRecording,
@@ -25,35 +26,61 @@ export function VoiceRecorder({ onResult, disabled }: VoiceRecorderProps) {
     toggleRecording,
   } = useVoice({
     onResult: async (text: string) => {
+      // 防止重复处理
+      if (processingRef.current) {
+        console.log('正在处理中，跳过:', text);
+        return;
+      }
+
+      processingRef.current = true;
       setIsProcessing(true);
+
       try {
+        console.log('处理语音结果:', text);
         await onResult(text);
+      } catch (error) {
+        console.error('处理语音结果失败:', error);
       } finally {
-        setIsProcessing(false);
+        // 延迟重置，防止快速连续触发
+        setTimeout(() => {
+          setIsProcessing(false);
+          processingRef.current = false;
+        }, 500);
       }
     },
     onError: (error) => {
       console.error('语音识别错误:', error);
       alert(error.message);
       setIsProcessing(false);
+      processingRef.current = false;
     },
   });
 
-  // 监听 F1 键
+  // 监听 F1 键（按下开始，松开结束）
   useEffect(() => {
+    let keyPressed = false;
+
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'F1') {
+      if (e.key === 'F1' && !keyPressed) {
         e.preventDefault();
-        if (!isRecording && !disabled && !isProcessing) {
+        keyPressed = true;
+
+        // 只在不录音、不处理中时才开始
+        if (!isRecording && !disabled && !isProcessing && !processingRef.current) {
           startRecording();
         }
       }
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.key === 'F1' && isRecording) {
+      if (e.key === 'F1' && keyPressed) {
         e.preventDefault();
-        stopRecording();
+        keyPressed = false;
+
+        // 松开时停止录音
+        if (isRecording) {
+          stopRecording();
+        }
       }
     };
 
@@ -65,6 +92,16 @@ export function VoiceRecorder({ onResult, disabled }: VoiceRecorderProps) {
       window.removeEventListener('keyup', handleKeyUp);
     };
   }, [isRecording, disabled, isProcessing, startRecording, stopRecording]);
+
+  // 点击按钮处理
+  const handleButtonClick = () => {
+    // 处理中不允许操作
+    if (isProcessing || processingRef.current) {
+      return;
+    }
+
+    toggleRecording();
+  };
 
   if (!isSupported) {
     return (
@@ -90,7 +127,7 @@ export function VoiceRecorder({ onResult, disabled }: VoiceRecorderProps) {
             isRecording && 'animate-pulse scale-110'
           )}
           disabled={disabled || isProcessing}
-          onClick={toggleRecording}
+          onClick={handleButtonClick}
         >
           {isProcessing ? (
             <Loader2 className="w-8 h-8 animate-spin" />

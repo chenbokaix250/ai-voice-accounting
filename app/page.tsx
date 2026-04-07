@@ -2,7 +2,7 @@
 
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { useRecords } from '@/hooks/use-records';
 import { VoiceRecorder } from '@/components/voice-recorder';
 import { RecordCard } from '@/components/record-card';
@@ -19,9 +19,18 @@ import { format } from 'date-fns';
 export default function Home() {
   const { records, isLoading, addRecord } = useRecords();
   const [latestParsed, setLatestParsed] = useState<ParsedVoiceResult | null>(null);
+  const processingRef = useRef(false);  // 防止重复处理
 
   // 处理语音识别结果（接收文本）
   const handleVoiceResult = async (text: string) => {
+    // 防止重复处理
+    if (processingRef.current) {
+      console.log('已有处理中，跳过:', text);
+      return;
+    }
+
+    processingRef.current = true;
+
     try {
       // 调用 API 解析文本
       const response = await fetch('/api/parse-text', {
@@ -54,6 +63,11 @@ export default function Home() {
     } catch (error) {
       console.error('处理语音错误:', error);
       toast.error('处理失败，请重试');
+    } finally {
+      // 延迟重置，防止快速连续触发
+      setTimeout(() => {
+        processingRef.current = false;
+      }, 1000);
     }
   };
 
