@@ -1,4 +1,4 @@
-// 文本解析 API Route（使用百炼 API - 通义千问）
+// 文本解析 API Route（使用 MiniMax API）
 
 import { NextRequest, NextResponse } from 'next/server';
 import { parseTextToRecord } from '@/lib/dashscope';
@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 调用百炼 API 解析文本
+    // 调用 MiniMax API 解析文本
     const result = await parseTextToRecord(text);
 
     return NextResponse.json({

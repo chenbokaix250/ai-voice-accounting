@@ -1,24 +1,23 @@
-// AI 文本解析封装（使用百炼 API - 通义千问）
-// 文档：https://help.aliyun.com/document_detail/2712195.html
+// AI 文本解析封装（使用 MiniMax API）
 
 import { ParsedVoiceResult, Category, RecordType, EXPENSE_CATEGORIES, INCOME_CATEGORIES } from '@/types/record';
 import { format, parse, isValid } from 'date-fns';
 
-const API_BASE = 'https://dashscope.aliyuncs.com/compatible-mode/v1';
+const API_BASE = 'https://api.minimax.chat/v1';
 
-// 调用百炼 API 解析文本
+// 调用 MiniMax API 解析文本
 async function callAI(prompt: string): Promise<string> {
-  const apiKey = process.env.DASHSCOPE_API_KEY;
-  if (!apiKey) throw new Error('DASHSCOPE_API_KEY 未配置');
+  const apiKey = process.env.MINIMAX_API_KEY;
+  if (!apiKey) throw new Error('MINIMAX_API_KEY 未配置');
 
-  const response = await fetch(`${API_BASE}/chat/completions`, {
+  const response = await fetch(`${API_BASE}/text/chatcompletion_v2`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'qwen-turbo',
+      model: 'MiniMax-M2.7',
       messages: [
         {
           role: 'user',
@@ -36,7 +35,7 @@ async function callAI(prompt: string): Promise<string> {
   }
 
   const data = await response.json();
-  const content = data.choices?.[0]?.message?.content || '';
+  const content = data.choices?.[0]?.message?.content || data.choices?.[0]?.message?.reasoning_content || '';
 
   if (!content) {
     throw new Error('AI 返回内容为空');
@@ -49,13 +48,11 @@ async function callAI(prompt: string): Promise<string> {
 function validateDate(dateStr: string | undefined, defaultDate: string): string {
   if (!dateStr) return defaultDate;
 
-  // 尝试解析日期
   const parsed = parse(dateStr, 'yyyy-MM-dd', new Date());
   if (isValid(parsed)) {
     return format(parsed, 'yyyy-MM-dd');
   }
 
-  // 如果解析失败，返回默认日期
   return defaultDate;
 }
 
@@ -88,20 +85,17 @@ export async function parseTextToRecord(text: string): Promise<ParsedVoiceResult
 
   const content = await callAI(prompt);
 
-  // 提取 JSON
   try {
     const jsonMatch = content.match(/\{[\s\S]*\}/);
     if (!jsonMatch) throw new Error('未找到JSON');
 
     const parsed = JSON.parse(jsonMatch[0]);
 
-    // 验证并修正类别
     const validCategories = [...EXPENSE_CATEGORIES, ...INCOME_CATEGORIES];
     if (!validCategories.includes(parsed.category)) {
       parsed.category = parsed.type === 'income' ? '其他收入' : '其他支出';
     }
 
-    // 验证并规范化日期
     const validatedDate = validateDate(parsed.date, today);
 
     console.log('AI 解析结果:', { ...parsed, date: validatedDate });
